@@ -66,13 +66,12 @@ Return only the SQL code without any explanation.
         )
 
 
-        sql_query = chat_completion.choices[0].message.content.strip()
-
-        print(f"Generated SQL Query: {sql_query}")
+        sql_query = chat_completion.choices[0].message.content.strip().replace("```", "")
         print(sql_query)
 
-        result = db.execute(text(query_request.query))
+        result = db.execute(text(sql_query))
         transactions = result.fetchall()
+
 
         response = [
             TransactionResponse(

@@ -22,4 +22,4 @@ class TransactionResponse(BaseModel):
         orm_mode = True
 
 class QueryRequest(BaseModel):
-    query: str = Field(..., example="SELECT * FROM transactions WHERE amount > 50")
+    query: str = Field(..., example="get transactions where amount is lower than average amount")
