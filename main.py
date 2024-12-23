@@ -1,9 +1,11 @@
-from fastapi import FastAPI
 from aida.finance.service import router as FinanceRouter
+from fastapi import FastAPI
+
+
 
 app = FastAPI()
 app.include_router(
-    FinanceRouter
+    FinanceRouter, tags=["finance"]
 )
 
 
