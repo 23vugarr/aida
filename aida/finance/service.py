@@ -31,7 +31,7 @@ def create_transaction(transaction: TransactionCreate, db: Session = Depends(get
 
 @router.get("/transactions/{transaction_id}", response_model=TransactionResponse)
 def get_transaction(transaction_id: int, db: Session = Depends(get_db)):
-    transaction = db.query(Transaction).filter(Transaction.id == transaction_id).first()
+    transaction = db.query(Transaction).filter(Transaction.tr_id == transaction_id).first()
     if not transaction:
         raise HTTPException(status_code=404, detail="Transaction not found")
     return transaction
@@ -41,7 +41,7 @@ def get_all_transactions(db: Session = Depends(get_db)):
     transactions = db.query(Transaction).all()
     return transactions
 
-@router.post("/transactions/query/", response_model=List[TransactionResponse])
+@router.post("/transactions/query/")
 def run_custom_query(query_request: QueryRequest, db: Session = Depends(get_db)):
     try:
         chat_completion = groq_client.chat.completions.create(
@@ -53,7 +53,7 @@ def run_custom_query(query_request: QueryRequest, db: Session = Depends(get_db))
 class Transaction(Base):
     __tablename__ = "transactions"
 
-    id = Column(Integer, primary_key=True, index=True)
+    tr_id = Column(Integer, primary_key=True, index=True)
     type = Column(String, index=True)
     amount = Column(Float, nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow)
@@ -70,18 +70,11 @@ Return only the SQL code without any explanation.
         print(sql_query)
 
         result = db.execute(text(sql_query))
+        print(result)
         transactions = result.fetchall()
 
 
-        response = [
-            TransactionResponse(
-                id=row.id,
-                type=row.type,
-                amount=row.amount,
-                timestamp=row.timestamp
-            )
-            for row in transactions
-        ]
+        response = [list(row) for row in transactions]
 
         return response
 

@@ -13,7 +13,7 @@ class TransactionCreate(BaseModel):
     amount: float = Field(..., gt=0, example=100.0)
 
 class TransactionResponse(BaseModel):
-    id: int
+    tr_id: int
     type: str
     amount: float
     timestamp: datetime

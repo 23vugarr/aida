@@ -9,7 +9,7 @@ from aida.config import engine
 class Transaction(Base):
     __tablename__ = "transactions"
 
-    id = Column(Integer, primary_key=True, index=True)
+    tr_id = Column(Integer, primary_key=True, index=True)
     type = Column(String, index=True)
     amount = Column(Float, nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow)
