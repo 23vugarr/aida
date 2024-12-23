@@ -6,6 +6,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 from typing import List
 from aida.config import get_db
+from aida.config import groq_client
+
 
 router = APIRouter(
     prefix="/bank"
@@ -42,21 +44,47 @@ def get_all_transactions(db: Session = Depends(get_db)):
 @router.post("/transactions/query/", response_model=List[TransactionResponse])
 def run_custom_query(query_request: QueryRequest, db: Session = Depends(get_db)):
     try:
+        chat_completion = groq_client.chat.completions.create(
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"""Based on this model of the database, write me the correct SQL query in SQL format to get all transactions where {query_request.query}. Example model is:
+
+class Transaction(Base):
+    __tablename__ = "transactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    type = Column(String, index=True)
+    amount = Column(Float, nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+Return only the SQL code without any explanation.
+""",
+                }
+            ],
+            model="llama3-8b-8192",
+        )
+
+
+        sql_query = chat_completion.choices[0].message.content.strip()
+
+        print(f"Generated SQL Query: {sql_query}")
+        print(sql_query)
+
         result = db.execute(text(query_request.query))
         transactions = result.fetchall()
 
-        response = []
-        for row in transactions:
-            print(row)
-            print(type(row))
-            print(row[0])
-            transaction = TransactionResponse(
-                id=row[0],
-                type=row[1],
-                amount=row[2],
-                timestamp=row[3]
+        response = [
+            TransactionResponse(
+                id=row.id,
+                type=row.type,
+                amount=row.amount,
+                timestamp=row.timestamp
             )
-            response.append(transaction)
+            for row in transactions
+        ]
+
         return response
+
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid query: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Error executing query: {str(e)}")

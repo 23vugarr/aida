@@ -3,6 +3,7 @@ from fastapi import FastAPI, HTTPException, Depends
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from groq import Groq
 
 DATABASE_URL = "sqlite:///./transactions.db"
 
@@ -18,3 +19,7 @@ def get_db():
         yield db
     finally:
         db.close()
+
+groq_client = Groq(
+    api_key="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",
+)
