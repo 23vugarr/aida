@@ -44,39 +44,74 @@ def get_all_transactions(db: Session = Depends(get_db)):
 @router.post("/transactions/query/")
 def run_custom_query(query_request: QueryRequest, db: Session = Depends(get_db)):
     try:
+        # Create the chat completion request with the provided query
         chat_completion = groq_client.chat.completions.create(
             messages=[
                 {
                     "role": "user",
-                    "content": f"""Based on this model of the database, write me the correct SQL query in SQL format to get all transactions where {query_request.query}. Example model is:
+                    "content": f"""
+                        Analyze the input query {query_request.query}:
+                        If the query related to the database information retrieval, treat it as related to the provided database model and generate the correct SQL query to address it. Return the SQL query wrapped between --START_SQL and --END_SQL tokens for easy parsing.
+                    
+                    Example database model:
+                        class Transaction(Base):  
+                            __tablename__ = "transactions"  
+                            tr_id = Column(Integer, primary_key=True, index=True)  
+                            type = Column(String, index=True)  
+                            amount = Column(Float, nullable=False)  
+                            timestamp = Column(DateTime, default=datetime.utcnow) 
 
-class Transaction(Base):
-    __tablename__ = "transactions"
+                    If the query does not contain the word database, treat it as a general question or user want to simply chat with you and provide a concise and accurate answer, wrapped between --START_GENERAL and --END_GENERAL tokens for easy parsing.
+                    For general questions: Provide only the answer in plain text. Avoid any explanations, comments, or unnecessary output. For database-related queries, return the SQL query and only query without any explanation or comments.
 
-    tr_id = Column(Integer, primary_key=True, index=True)
-    type = Column(String, index=True)
-    amount = Column(Float, nullable=False)
-    timestamp = Column(DateTime, default=datetime.utcnow)
-
-Return only the SQL code without any explanation.
-""",
+                    """
                 }
             ],
             model="llama3-8b-8192",
-        )
+            # temperature=0.3,
+            top_p=1,
+        )   
 
+        # Extract response content
+        response_content = chat_completion.choices[0].message.content.strip()
+        print(response_content, " FIRST OUT MODEL")
+        # Tokens for SQL and general questions
+        start_sql_token = "--START_SQL"
+        end_sql_token = "--END_SQL"
+        start_general_token = "--START_GENERAL"
+        end_general_token = "--END_GENERAL"
 
-        sql_query = chat_completion.choices[0].message.content.strip().replace("```", "")
-        print(sql_query)
+        # Initialize variables to hold parsed content
+        sql_query = None
+        general_answer = None
 
-        result = db.execute(text(sql_query))
-        print(result)
-        transactions = result.fetchall()
+        if start_sql_token in response_content and end_sql_token in response_content:
+            print('DEBUG MODE SQL START')
+            print(response_content.split(start_sql_token)[1])
+            print('DEBUG MODE SQL END')
 
+            sql_query = response_content.split(start_sql_token)[1].split(end_sql_token)[0].strip()
 
-        response = [list(row) for row in transactions]
+        if start_general_token in response_content and end_general_token in response_content:
+            general_answer = response_content.split(start_general_token)[1].split(end_general_token)[0].strip()
 
-        return response
+        if sql_query:
+            print('00000')
+            print(sql_query, "SQL QUERY")
+            result = db.execute(text(sql_query))
+            transactions = result.fetchall()
+            response = [list(row) for row in transactions]
+            return response
+        
+        if general_answer:
+            print('00000')
+            print(general_answer, "GENERAL")
+            return general_answer
+        
+
+        print(response_content,'RESPONSE CONTENT')
+
+        raise HTTPException(status_code=400, detail="No SQL query or general answer found in the response.")
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error executing query: {str(e)}")
