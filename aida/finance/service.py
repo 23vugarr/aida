@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from aida.config import get_db
 from aida.config import groq_client
-
+import re
 
 router = APIRouter(
     prefix="/bank"
@@ -50,31 +50,38 @@ def run_custom_query(query_request: QueryRequest, db: Session = Depends(get_db))
                 {
                     "role": "user",
                     "content": f"""
-                        Analyze the input query {query_request.query}:
-                        If the query related to the database information retrieval, treat it as related to the provided database model and generate the correct SQL query to address it. Return the SQL query wrapped between --START_SQL and --END_SQL tokens for easy parsing.
-                    
-                    Example database model:
+                        Please analyze the following input query: "{query_request.query}".
+                        
+                        **Scenario 1: Database-related queries**  
+                        If the query pertains to retrieving or manipulating data from the database, classify it as database-related. Your task is to generate the correct SQL query based on the provided database schema. 
+                        Return the SQL query wrapped between --START_SQL and --END_SQL tokens for easy parsing.
+
+                        **Database Model Example:**
                         class Transaction(Base):  
                             __tablename__ = "transactions"  
                             tr_id = Column(Integer, primary_key=True, index=True)  
                             type = Column(String, index=True)  
                             amount = Column(Float, nullable=False)  
-                            timestamp = Column(DateTime, default=datetime.utcnow) 
+                            timestamp = Column(DateTime, default=datetime.utcnow)
 
-                    If the query does not contain the word database, treat it as a general question or user want to simply chat with you and provide a concise and accurate answer, wrapped between --START_GENERAL and --END_GENERAL tokens for easy parsing.
-                    For general questions: Provide only the answer in plain text. Avoid any explanations, comments, or unnecessary output. For database-related queries, return the SQL query and only query without any explanation or comments.
+                        **Scenario 2: General questions or chit-chat**  
+                        If the query does not refer to database-related tasks (e.g., "What is water?" or "Who is Albert Einstein?"), treat it as a general question or conversation. Provide a concise, clear, and factual answer. 
+                        Return the answer wrapped between --START_GENERAL and --END_GENERAL tokens for easy parsing. 
 
+                        **Instructions:**
+                        1. For database-related queries, generate only the SQL query.
+                        2. For general questions, provide only the concise answer, with no extra explanations or comments.
                     """
                 }
             ],
             model="llama3-8b-8192",
-            # temperature=0.3,
             top_p=1,
-        )   
+        )
 
         # Extract response content
         response_content = chat_completion.choices[0].message.content.strip()
-        print(response_content, " FIRST OUT MODEL")
+        print(response_content, "MODEL RESPONSE")
+
         # Tokens for SQL and general questions
         start_sql_token = "--START_SQL"
         end_sql_token = "--END_SQL"
@@ -85,33 +92,33 @@ def run_custom_query(query_request: QueryRequest, db: Session = Depends(get_db))
         sql_query = None
         general_answer = None
 
-        if start_sql_token in response_content and end_sql_token in response_content:
-            print('DEBUG MODE SQL START')
-            print(response_content.split(start_sql_token)[1])
-            print('DEBUG MODE SQL END')
+        # Improved parsing using regular expressions for SQL
+        sql_pattern = r'--START_SQL(.*?)--END_SQL'
+        sql_match = re.search(sql_pattern, response_content, re.DOTALL)
+        if sql_match:
+            sql_query = sql_match.group(1).strip()
 
-            sql_query = response_content.split(start_sql_token)[1].split(end_sql_token)[0].strip()
+        # Improved parsing using regular expressions for general answers
+        general_pattern = r'--START_GENERAL(.*?)--END_GENERAL'
+        general_match = re.search(general_pattern, response_content, re.DOTALL)
+        if general_match:
+            general_answer = general_match.group(1).strip()
 
-        if start_general_token in response_content and end_general_token in response_content:
-            general_answer = response_content.split(start_general_token)[1].split(end_general_token)[0].strip()
-
+        # Handle SQL query
         if sql_query:
-            print('00000')
-            print(sql_query, "SQL QUERY")
+            print(f"Generated SQL Query: {sql_query}")
             result = db.execute(text(sql_query))
             transactions = result.fetchall()
             response = [list(row) for row in transactions]
             return response
         
+        # Handle general answers
         if general_answer:
-            print('00000')
-            print(general_answer, "GENERAL")
+            print(f"General Answer: {general_answer}")
             return general_answer
         
-
-        print(response_content,'RESPONSE CONTENT')
-
-        raise HTTPException(status_code=400, detail="No SQL query or general answer found in the response.")
+        # If no valid response is found, raise an exception
+        raise HTTPException(status_code=400, detail="No valid SQL query or general answer found in the response.")
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error executing query: {str(e)}")
