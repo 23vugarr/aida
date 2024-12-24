@@ -9,6 +9,9 @@ from aida.config import get_db
 from aida.config import groq_client
 import re
 
+
+FIRST_ENTER = True
+
 router = APIRouter(
     prefix="/bank"
 )
@@ -77,12 +80,19 @@ def run_custom_query(query_request: QueryRequest, db: Session = Depends(get_db))
                         **Scenario 4: Other Topics**  
                         If the query does not pertain to database-related tasks, finance-related questions, or basic welcoming-chat (greetings or farewells), return a response indicating that this AI assistant only supports finance-related questions and database interaction. 
                         Return the answer wrapped between --START_OTHER_TOPIC and --END_OTHER_TOPIC tokens for easy parsing.
-
+                        
+                        **Scenario 5: Introduction Request
+                        If the query explicitly asks for an introduction (e.g., “Can you introduce yourself?”), respond with:
+                        "Hi. My name is Aida. I am a financial assistant of Pasha Bank. How can I help you?"
+                        Return this response wrapped between --START_INTRODUCTION and --END_INTRODUCTION tokens for easy parsing.
+                        
                         **Instructions:**
                         1. For database-related queries, generate only the SQL query and only query without additional comments.
                         2. For finance-related queries, provide only the concise, finance-related answer and only answer without additional comments.
                         3. For welcoming-chat, provide a friendly, conversational greeting or farewell without additional comments.
                         4. For other topics, return a message indicating the assistant only supports finance-related questions and database interaction without additional comments.
+                        5. For introduction requests, provide the introduction response as specified above.
+
                     """
                 }
             ],
@@ -90,7 +100,6 @@ def run_custom_query(query_request: QueryRequest, db: Session = Depends(get_db))
             top_p=1,
             temperature=.1,
         )
-
         # Extract response content
         response_content = chat_completion.choices[0].message.content.strip()
         print(response_content, "MODEL RESPONSE")
@@ -104,12 +113,15 @@ def run_custom_query(query_request: QueryRequest, db: Session = Depends(get_db))
         end_welcoming_chat_token = "--END_WELCOMING_CHAT"
         start_other_topic_token = "--START_OTHER_TOPIC"
         end_other_topic_token = "--END_OTHER_TOPIC"
+        start_introduction_token = "--START_INTRODUCTION"
+        end_introduction_token = "--END_INTRODUCTION"
 
         # Initialize variables to hold parsed content
         sql_query = None
         finance_answer = None
         welcoming_chat_answer = None
         other_topic_answer = None
+        introduction_answer = None
 
         # Parsing for SQL queries
         sql_pattern = r'--START_SQL(.*?)--END_SQL'
@@ -128,6 +140,12 @@ def run_custom_query(query_request: QueryRequest, db: Session = Depends(get_db))
         welcoming_chat_match = re.search(welcoming_chat_pattern, response_content, re.DOTALL)
         if welcoming_chat_match:
             welcoming_chat_answer = welcoming_chat_match.group(1).strip()
+
+        # Parsing for introduction answers
+        introduction_pattern = r'--START_INTRODUCTION(.*?)--END_INTRODUCTION'
+        introduction_match = re.search(introduction_pattern, response_content, re.DOTALL)
+        if introduction_match:
+            introduction_answer = introduction_match.group(1).strip()
 
         # Parsing for other topic answers
         other_topic_pattern = r'--START_OTHER_TOPIC(.*?)--END_OTHER_TOPIC'
@@ -152,6 +170,11 @@ def run_custom_query(query_request: QueryRequest, db: Session = Depends(get_db))
         if welcoming_chat_answer:
             print(f"Welcoming Chat Answer: {welcoming_chat_answer}")
             return welcoming_chat_answer
+
+        # Handle introduction answers
+        if introduction_answer:
+            print(f"Introduction Answer: {introduction_answer}")
+            return introduction_answer
         
         # Handle other topic answers
         if other_topic_answer:
@@ -159,7 +182,7 @@ def run_custom_query(query_request: QueryRequest, db: Session = Depends(get_db))
             return other_topic_answer
         
         # If no valid response is found, raise an exception
-        raise HTTPException(status_code=400, detail="No valid SQL query, finance answer, welcoming-chat, or other topic response found in the response.")
+        raise HTTPException(status_code=400, detail="No valid SQL query, finance answer, welcoming-chat, introduction, or other topic response found in the response.")
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error executing query: {str(e)}")
