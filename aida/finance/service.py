@@ -41,6 +41,7 @@ def get_all_transactions(db: Session = Depends(get_db)):
     transactions = db.query(Transaction).all()
     return transactions
 
+
 @router.post("/transactions/query/")
 def run_custom_query(query_request: QueryRequest, db: Session = Depends(get_db)):
     try:
@@ -64,45 +65,76 @@ def run_custom_query(query_request: QueryRequest, db: Session = Depends(get_db))
                             amount = Column(Float, nullable=False)  
                             timestamp = Column(DateTime, default=datetime.utcnow)
 
-                        **Scenario 2: General questions or chit-chat**  
-                        If the query does not refer to database-related tasks (e.g., "What is water?" or "Who is Albert Einstein?"), treat it as a general question or conversation. Provide a concise, clear, and factual answer. 
-                        Return the answer wrapped between --START_GENERAL and --END_GENERAL tokens for easy parsing. 
+                        **Scenario 2: Finance-related questions**  
+                        If the query pertains to finance-related questions (e.g., “What is revenue?” or “How to calculate expenses?”), treat it as a finance-related question. Provide a clear, concise answer related to finance. 
+                        Return the answer wrapped between --START_FINANCE and --END_FINANCE tokens for easy parsing.
+
+                        **Scenario 3: Welcoming Chat**  
+                        If the query is strictly a basic conversational greeting or farewell (e.g., “Hi,” “Hello,” “How are you?”, “Goodbye”), categorize it as general welcoming chat. 
+                        *Important*: Any other query, even if casual or general, should not be categorized as welcoming-chat. 
+
+                        Return the answer wrapped between --START_WELCOMING_CHAT and --END_WELCOMING_CHAT tokens for easy parsing.
+
+                        **Scenario 4: Other Topics**  
+                        If the query does not pertain to database-related tasks, finance-related questions, or basic welcoming-chat (greetings or farewells), return a response indicating that this AI assistant only supports finance-related questions and database interaction. 
+                        Return the answer wrapped between --START_OTHER_TOPIC and --END_OTHER_TOPIC tokens for easy parsing.
 
                         **Instructions:**
                         1. For database-related queries, generate only the SQL query.
-                        2. For general questions, provide only the concise answer, with no extra explanations or comments.
+                        2. For finance-related queries, provide only the concise, finance-related answer.
+                        3. For welcoming-chat, provide a friendly, conversational greeting or farewell.
+                        4. For other topics, return a message indicating the assistant only supports finance-related questions and database interaction.
                     """
                 }
             ],
-            model="llama3-8b-8192",
+            model="llama3-70b-8192",
             top_p=1,
+            temperature=.1,
         )
 
         # Extract response content
         response_content = chat_completion.choices[0].message.content.strip()
         print(response_content, "MODEL RESPONSE")
 
-        # Tokens for SQL and general questions
+        # Define tokens for each category
         start_sql_token = "--START_SQL"
         end_sql_token = "--END_SQL"
-        start_general_token = "--START_GENERAL"
-        end_general_token = "--END_GENERAL"
+        start_finance_token = "--START_FINANCE"
+        end_finance_token = "--END_FINANCE"
+        start_welcoming_chat_token = "--START_WELCOMING_CHAT"
+        end_welcoming_chat_token = "--END_WELCOMING_CHAT"
+        start_other_topic_token = "--START_OTHER_TOPIC"
+        end_other_topic_token = "--END_OTHER_TOPIC"
 
         # Initialize variables to hold parsed content
         sql_query = None
-        general_answer = None
+        finance_answer = None
+        welcoming_chat_answer = None
+        other_topic_answer = None
 
-        # Improved parsing using regular expressions for SQL
+        # Parsing for SQL queries
         sql_pattern = r'--START_SQL(.*?)--END_SQL'
         sql_match = re.search(sql_pattern, response_content, re.DOTALL)
         if sql_match:
             sql_query = sql_match.group(1).strip()
 
-        # Improved parsing using regular expressions for general answers
-        general_pattern = r'--START_GENERAL(.*?)--END_GENERAL'
-        general_match = re.search(general_pattern, response_content, re.DOTALL)
-        if general_match:
-            general_answer = general_match.group(1).strip()
+        # Parsing for finance-related answers
+        finance_pattern = r'--START_FINANCE(.*?)--END_FINANCE'
+        finance_match = re.search(finance_pattern, response_content, re.DOTALL)
+        if finance_match:
+            finance_answer = finance_match.group(1).strip()
+
+        # Parsing for welcoming-chat answers
+        welcoming_chat_pattern = r'--START_WELCOMING_CHAT(.*?)--END_WELCOMING_CHAT'
+        welcoming_chat_match = re.search(welcoming_chat_pattern, response_content, re.DOTALL)
+        if welcoming_chat_match:
+            welcoming_chat_answer = welcoming_chat_match.group(1).strip()
+
+        # Parsing for other topic answers
+        other_topic_pattern = r'--START_OTHER_TOPIC(.*?)--END_OTHER_TOPIC'
+        other_topic_match = re.search(other_topic_pattern, response_content, re.DOTALL)
+        if other_topic_match:
+            other_topic_answer = other_topic_match.group(1).strip()
 
         # Handle SQL query
         if sql_query:
@@ -112,13 +144,23 @@ def run_custom_query(query_request: QueryRequest, db: Session = Depends(get_db))
             response = [list(row) for row in transactions]
             return response
         
-        # Handle general answers
-        if general_answer:
-            print(f"General Answer: {general_answer}")
-            return general_answer
+        # Handle finance-related answers
+        if finance_answer:
+            print(f"Finance Answer: {finance_answer}")
+            return finance_answer
+        
+        # Handle welcoming-chat answers
+        if welcoming_chat_answer:
+            print(f"Welcoming Chat Answer: {welcoming_chat_answer}")
+            return welcoming_chat_answer
+        
+        # Handle other topic answers
+        if other_topic_answer:
+            print(f"Other Topic Answer: {other_topic_answer}")
+            return other_topic_answer
         
         # If no valid response is found, raise an exception
-        raise HTTPException(status_code=400, detail="No valid SQL query or general answer found in the response.")
+        raise HTTPException(status_code=400, detail="No valid SQL query, finance answer, welcoming-chat, or other topic response found in the response.")
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Error executing query: {str(e)}")
