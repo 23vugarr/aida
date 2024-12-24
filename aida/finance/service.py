@@ -80,10 +80,10 @@ def run_custom_query(query_request: QueryRequest, db: Session = Depends(get_db))
                         Return the answer wrapped between --START_OTHER_TOPIC and --END_OTHER_TOPIC tokens for easy parsing.
 
                         **Instructions:**
-                        1. For database-related queries, generate only the SQL query.
-                        2. For finance-related queries, provide only the concise, finance-related answer.
-                        3. For welcoming-chat, provide a friendly, conversational greeting or farewell.
-                        4. For other topics, return a message indicating the assistant only supports finance-related questions and database interaction.
+                        1. For database-related queries, generate only the SQL query and only query without additional comments.
+                        2. For finance-related queries, provide only the concise, finance-related answer and only answer without additional comments.
+                        3. For welcoming-chat, provide a friendly, conversational greeting or farewell without additional comments.
+                        4. For other topics, return a message indicating the assistant only supports finance-related questions and database interaction without additional comments.
                     """
                 }
             ],
