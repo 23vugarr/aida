@@ -54,8 +54,7 @@ def run_custom_query(query_request: QueryRequest, db: Session = Depends(get_db))
                         Please analyze the following input query: "{query_request.query}".
                         
                         **Scenario 1: Database-related queries**  
-                        If the query pertains to retrieving or manipulating data from the database, classify it as database-related. Your task is to generate the correct SQL query based on the provided database schema. 
-                        Return the SQL query wrapped between --START_SQL and --END_SQL tokens for easy parsing.
+                        If the user query involves retrieving or manipulating data from the database, transform the query into a general form. For example, convert personal phrasing like 'how much transaction I made' into a general form like 'how much transaction is made' to ensure clarity and broader applicability. Your task is to generate the correct SQL query based on the provided database schema. Return the SQL query wrapped between --START_SQL and --END_SQL tokens for easy parsing.
 
                         **Database Model Example:**
                         class Transaction(Base):  
