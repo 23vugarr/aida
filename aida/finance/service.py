@@ -209,6 +209,7 @@ def run_custom_query(query_request: QueryRequest, db: Session = Depends(get_db))
         # Match the query against predefined patterns
         for pattern, answer in QUERY_ANSWERS.items():
             if re.match(pattern, user_query):
+                print(answer)
                 return {"answer": answer}
         
         # If no match is found
