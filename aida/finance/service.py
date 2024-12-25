@@ -200,9 +200,9 @@ QUERY_ANSWERS = {
 }
 
 @router.post("/transactions/query/")
-def run_custom_query(query_request: Dict[str, str], db: Session = Depends(get_db)):
+def run_custom_query(query_request: QueryRequest, db: Session = Depends(get_db)):
     try:
-        user_query = query_request.get("query", "").strip()
+        user_query = query_request.query
         if not user_query:
             raise ValueError("Query cannot be empty.")
         
