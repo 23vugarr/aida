@@ -189,6 +189,7 @@ def get_all_transactions(db: Session = Depends(get_db)):
 
 # Define the query-to-answer mapping
 QUERY_ANSWERS = {
+    r"(?i)what is your name\??": "Hi. My name is Aida. I am a financial assistant of Pasha Bank. How can I help you?",
     r"(?i)what is my current account balance\??": "Your current balance is 12,350 AZN.",
     r"(?i)when are my upcoming payments, and how much are they\??": "On January 15, you have a loan payment of 2,500 AZN, and on January 30, there are utility expenses of 1,200 AZN.",
     r"(?i)how much credit can i take, and what is the interest rate\??": "Based on your current income, you are eligible for a loan of up to 25,000 AZN with an annual interest rate starting at 12%.",
